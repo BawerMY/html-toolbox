@@ -1,13 +1,15 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { IconAppWindow, IconBookmarkOff, IconBookmarkPlus, IconPlayerStopFilled, IconSend } from "@tabler/icons-react";
 import { createIdGenerator, DefaultChatTransport, type UIMessage } from "ai";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { renameToolAction, setOnDashboardAction, toolSavedAction } from "@/app/actions";
+import { DeleteToolButton } from "@/components/delete-tool-button";
+import { DownloadButton } from "@/components/download-button";
 import { ModelPicker } from "@/components/model-picker";
-import { downloadHtml } from "@/lib/download";
 import type { ModelOption, ModelSelection } from "@/lib/model-options";
 import { extractHtml, latestHtml, messageText, stripHtml } from "@/lib/html";
 
@@ -151,11 +153,13 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
           <div className="mt-2 flex items-center justify-end gap-2">
             <ModelPicker models={models} value={model} onChange={setModel} disabled={busy} />
             {busy ? (
-              <button type="button" onClick={stop} className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
+              <button type="button" onClick={stop} className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
+                <IconPlayerStopFilled size={16} aria-hidden />
                 Stop
               </button>
             ) : (
-              <button type="submit" disabled={!input.trim()} className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900">
+              <button type="submit" disabled={!input.trim()} className="flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900">
+                <IconSend size={16} aria-hidden />
                 Send
               </button>
             )}
@@ -184,24 +188,21 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
           />
           <div className="flex gap-2">
             {html && !isNew && (
-              <Link href={`/t/${id}/view`} className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
+              <Link href={`/t/${id}/view`} className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
+                <IconAppWindow size={16} aria-hidden />
                 Open tool
               </Link>
             )}
-            <button
-              onClick={() => html && downloadHtml(html)}
-              disabled={!html}
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-zinc-700"
-            >
-              Download
-            </button>
+            <DownloadButton html={html} />
             <button
               onClick={toggleDashboard}
               disabled={!html || isNew}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+              className="flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
             >
+              {onDashboard ? <IconBookmarkOff size={16} aria-hidden /> : <IconBookmarkPlus size={16} aria-hidden />}
               {onDashboard ? "Remove from dashboard" : "Save to dashboard"}
             </button>
+            <DeleteToolButton id={id} title={title} disabled={isNew} />
           </div>
         </header>
         {html ? (

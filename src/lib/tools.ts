@@ -101,6 +101,10 @@ export async function setOnDashboard(id: string, onDashboard: boolean): Promise<
   return result.matchedCount === 1;
 }
 
+export async function deleteTool(id: string): Promise<void> {
+  await (await tools()).deleteOne({ _id: id });
+}
+
 /** Sets dashboard order from a list of tool ids. */
 export async function reorderDashboard(ids: string[]): Promise<void> {
   if (ids.length === 0) return;

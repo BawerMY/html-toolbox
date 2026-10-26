@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { renameTool, reorderDashboard, setOnDashboard } from "@/lib/tools";
+import { cancelGeneration } from "@/lib/generations";
+import { deleteTool, isToolId, renameTool, reorderDashboard, setOnDashboard } from "@/lib/tools";
 
 // Tool data shows up on several pages (history, dashboard, chat, view), so every change
 // marks all of them stale; pages kept alive in the background re-fetch when shown again.
@@ -23,6 +24,14 @@ export async function renameToolAction(id: string, title: string) {
 
 export async function reorderDashboardAction(ids: string[]) {
   await reorderDashboard(ids);
+  refreshAllPages();
+}
+
+export async function deleteToolAction(id: string) {
+  if (!isToolId(id)) return;
+  // A running reply would save the tool again when it ends, so stop it first.
+  await cancelGeneration(id);
+  await deleteTool(id);
   refreshAllPages();
 }
 

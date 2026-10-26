@@ -3,6 +3,7 @@
 import { move } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
+import { IconGripVertical } from "@tabler/icons-react";
 import Link from "next/link";
 import { useState } from "react";
 import { reorderDashboardAction } from "@/app/actions";
@@ -22,9 +23,7 @@ function ToolCard({ tool, index }: { tool: ToolSummary; index: number }) {
         aria-label={`Move ${tool.title}`}
         className="flex w-8 shrink-0 cursor-grab items-center justify-center border-r border-zinc-200 text-zinc-400 hover:text-zinc-700 active:cursor-grabbing dark:border-zinc-800 dark:hover:text-zinc-200"
       >
-        <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden>
-          {[3, 8, 13].flatMap((y) => [<circle key={`l${y}`} cx="3" cy={y} r="1.5" />, <circle key={`r${y}`} cx="9" cy={y} r="1.5" />])}
-        </svg>
+        <IconGripVertical size={16} aria-hidden />
       </button>
       <Link href={`/t/${tool.id}/view`} className="flex-1 truncate px-4 py-6 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800">
         {tool.title}

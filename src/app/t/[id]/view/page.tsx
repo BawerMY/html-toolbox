@@ -1,6 +1,8 @@
+import { IconArrowLeft, IconMessage } from "@tabler/icons-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { DownloadButton } from "@/components/download-button";
 import { getTool } from "@/lib/tools";
 
 async function ToolView({ params }: { params: Promise<{ id: string }> }) {
@@ -11,14 +13,19 @@ async function ToolView({ params }: { params: Promise<{ id: string }> }) {
     <>
       <header className="flex items-center justify-between gap-2 border-b border-zinc-200 px-4 py-2 dark:border-zinc-800">
         <div className="flex min-w-0 items-center gap-3">
-          <Link href="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
-            ← Dashboard
+          <Link href="/" className="flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+            <IconArrowLeft size={16} aria-hidden />
+            Dashboard
           </Link>
           <h1 className="truncate text-sm font-medium">{tool.title}</h1>
         </div>
-        <Link href={`/t/${id}`} className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
-          Edit in chat
-        </Link>
+        <div className="flex gap-2">
+          <DownloadButton html={tool.html} />
+          <Link href={`/t/${id}`} className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
+            <IconMessage size={16} aria-hidden />
+            Edit in chat
+          </Link>
+        </div>
       </header>
       <iframe
         title={tool.title}

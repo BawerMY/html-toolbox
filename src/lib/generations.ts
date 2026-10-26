@@ -10,6 +10,8 @@ type Generation = {
   listeners: Set<() => void>;
   abort: AbortController;
   done: boolean;
+  /** Resolves after the stream ends, which is after the reply is saved. */
+  finished: Promise<void>;
 };
 
 // Finished generations are kept briefly so a client that loaded the page just before the
@@ -26,11 +28,11 @@ export function isGenerating(id: string): boolean {
 
 /** Drains `stream` in the background, whether or not any client is listening. */
 export function startGeneration(id: string, abort: AbortController, stream: ReadableStream<UIMessageChunk>) {
-  const generation: Generation = { chunks: [], listeners: new Set(), abort, done: false };
+  const generation: Generation = { chunks: [], listeners: new Set(), abort, done: false, finished: Promise.resolve() };
   generations.set(id, generation);
   const notify = () => generation.listeners.forEach((listener) => listener());
 
-  (async () => {
+  generation.finished = (async () => {
     try {
       const reader = stream.getReader();
       for (let next = await reader.read(); !next.done; next = await reader.read()) {
@@ -72,6 +74,14 @@ export function subscribe(id: string): ReadableStream<UIMessageChunk> | null {
       generation.listeners.delete(onChange);
     },
   });
+}
+
+/** Stops the generation if one is running and waits until its reply is saved. */
+export async function cancelGeneration(id: string): Promise<void> {
+  const generation = generations.get(id);
+  if (!generation) return;
+  generation.abort.abort();
+  await generation.finished;
 }
 
 /** Cancels the model call. The partial reply is still saved. */

@@ -14,6 +14,7 @@
     "@ai-sdk/react": "^4.0.157",
     "@dnd-kit/helpers": "^0.5.1",
     "@dnd-kit/react": "^0.5.1",
+    "@tabler/icons-react": "^3.49.0",
     "ai": "^7.0.153",
     "mongodb": "^7.7.0",
     "next": "16.4.3",
