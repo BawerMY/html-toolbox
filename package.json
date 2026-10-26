@@ -6,9 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db": "mkdir -p .data/mongo && mongod --dbpath .data/mongo --bind_ip 127.0.0.1 --port 27018"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.78",
+    "@ai-sdk/react": "^4.0.157",
+    "@dnd-kit/helpers": "^0.5.1",
+    "@dnd-kit/react": "^0.5.1",
+    "ai": "^7.0.153",
+    "mongodb": "^7.7.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0"

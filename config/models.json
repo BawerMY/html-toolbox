@@ -1,0 +1,13 @@
+[
+  {
+    "id": "qwen/qwen3-coder-flash",
+    "label": "Qwen3 Coder Flash",
+    "reasoning": false
+  },
+  {
+    "id": "deepseek/deepseek-v4-flash",
+    "label": "DeepSeek V4 Flash",
+    "reasoning": true,
+    "defaultReasoning": "low"
+  }
+]
