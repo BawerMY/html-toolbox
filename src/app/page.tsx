@@ -11,9 +11,9 @@ async function DashboardTools() {
 
 export default function DashboardPage() {
   return (
-    <main className="flex h-screen">
+    <main className="flex h-dvh flex-col lg:flex-row">
       <Sidebar />
-      <section className="flex-1 overflow-y-auto p-6">
+      <section className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
         <h1 className="mb-4 text-lg font-semibold">Dashboard</h1>
         <Suspense fallback={<p className="text-sm text-zinc-400">Loading…</p>}>
           <DashboardTools />

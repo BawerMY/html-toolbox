@@ -3,23 +3,25 @@
 import { useChat } from "@ai-sdk/react";
 import {
   IconAlertTriangle,
-  IconAppWindow,
   IconArrowBackUp,
-  IconBookmarkOff,
-  IconBookmarkPlus,
   IconPlayerStopFilled,
   IconRefresh,
   IconSend,
   IconWand,
 } from "@tabler/icons-react";
 import { createIdGenerator, DefaultChatTransport, type UIMessage } from "ai";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
-import { renameToolAction, restoreVersionAction, setOnDashboardAction, toolSavedAction } from "@/app/actions";
-import { DeleteToolButton } from "@/components/delete-tool-button";
-import { DownloadButton } from "@/components/download-button";
+import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  renameToolAction,
+  revertToVersionAction,
+  toolSavedAction,
+} from "@/app/actions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ImportHtmlButton } from "@/components/import-html-button";
 import { ModelPicker } from "@/components/model-picker";
+import { ToolActions } from "@/components/tool-actions";
+import { UserMessage } from "@/components/user-message";
 import type { ModelOption, ModelSelection } from "@/lib/model-options";
 import { extractHtml, hasUnfinishedHtml, latestHtmlMessage, messageText, stripHtml } from "@/lib/html";
 import { isToolErrorMessage, previewHtml, RESEND_TOOL_ERRORS } from "@/lib/preview";
@@ -41,9 +43,8 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
   const router = useRouter();
   const [input, setInput] = useState("");
   const [model, setModel] = useState(initialModel);
-  // Server value, shown optimistically while a change is in flight.
-  const [onDashboard, setOptimisticOnDashboard] = useOptimistic(initialOnDashboard);
-  const [, startTransition] = useTransition();
+  // Small screens show the chat or the preview, not both.
+  const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
   const { messages, setMessages, sendMessage, regenerate, status, error } = useChat({
     id,
     messages: initialMessages,
@@ -53,8 +54,9 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
     transport: new DefaultChatTransport({
       api: "/api/chat",
       // The server loads earlier messages from the database, so only the new one is sent.
-      prepareSendMessagesRequest: ({ id, messages, body, trigger }) => ({
-        body: { ...body, id, trigger, message: messages.at(-1) },
+      // messageId is set when an earlier message was edited.
+      prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
+        body: { ...body, id, trigger, messageId, message: messages.at(-1) },
       }),
     }),
     onFinish: ({ isAbort, isDisconnect }) => {
@@ -84,7 +86,7 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
   // While a response streams, keep showing the previous HTML so the iframe doesn't reload on every token.
   const currentMessage = latestHtmlMessage(busy ? messages.slice(0, -1) : messages);
   const html = currentMessage && extractHtml(messageText(currentMessage));
-  const [restoring, startRestore] = useTransition();
+  const [reverting, startRevert] = useTransition();
 
   // Uncaught errors from the tool, reported by the preview iframe. Only the first one per version is kept.
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -124,11 +126,30 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
     sendMessage({ text: `The tool shows this error:\n${shownToolError}\n\nFix it.` }, { body: { model } });
   }
 
-  function restore(messageId: string) {
-    startRestore(async () => {
-      const next = await restoreVersionAction(id, messageId);
+  // Reverting deletes every message after the chosen version, so it is confirmed first.
+  const [pendingRevert, setPendingRevert] = useState<string | null>(null);
+
+  function revert() {
+    if (!pendingRevert) return;
+    startRevert(async () => {
+      const next = await revertToVersionAction(id, pendingRevert);
       if (next) setMessages(next);
+      setPendingRevert(null);
     });
+  }
+
+  // Editing an earlier message deletes everything after it, so ask first when that loses more than its reply.
+  const [pendingEdit, setPendingEdit] = useState<{ messageId: string; text: string } | null>(null);
+
+  function editMessage(messageId: string, text: string) {
+    const index = messages.findIndex((m) => m.id === messageId);
+    if (messages.length > index + 2) setPendingEdit({ messageId, text });
+    else sendEdit(messageId, text);
+  }
+
+  function sendEdit(messageId: string, text: string) {
+    setPendingEdit(null);
+    sendMessage({ text, messageId }, { body: { model } });
   }
 
   function stop() {
@@ -145,20 +166,32 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
     await renameToolAction(id, next);
   }
 
-  function toggleDashboard() {
-    const next = !onDashboard;
-    startTransition(async () => {
-      setOptimisticOnDashboard(next);
-      await setOnDashboardAction(id, next);
-    });
-  }
-
   return (
-    <>
-      <section className="flex w-[420px] shrink-0 flex-col border-r border-zinc-200 dark:border-zinc-800">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
+      <div role="tablist" className="flex shrink-0 border-b border-zinc-200 md:hidden dark:border-zinc-800">
+        {(["chat", "preview"] as const).map((view) => (
+          <button
+            key={view}
+            role="tab"
+            aria-selected={mobileView === view}
+            onClick={() => setMobileView(view)}
+            className={`flex-1 border-b-2 py-2 text-sm font-medium capitalize ${
+              mobileView === view ? "border-zinc-900 dark:border-zinc-100" : "border-transparent text-zinc-500"
+            }`}
+          >
+            {view}
+          </button>
+        ))}
+      </div>
+      <section
+        className={`${mobileView === "chat" ? "flex" : "hidden"} min-h-0 flex-1 flex-col md:flex md:w-[360px] md:flex-none md:border-r xl:w-[420px] border-zinc-200 dark:border-zinc-800`}
+      >
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {messages.length === 0 && (
-            <p className="text-sm text-zinc-500">Describe the HTML tool you want to build.</p>
+            <div className="space-y-3 text-sm text-zinc-500">
+              <p>Describe the HTML tool you want to build, or start from an existing file.</p>
+              {isNew && <ImportHtmlButton />}
+            </div>
           )}
           {messages.map((message) => {
             const text = messageText(message);
@@ -167,14 +200,20 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
             const unfinished = isAssistant && hasUnfinishedHtml(text);
             const streaming = busy && message === messages.at(-1);
             const shown = isAssistant ? stripHtml(text) : text;
+            if (!isAssistant) {
+              return (
+                <UserMessage
+                  key={message.id}
+                  text={text}
+                  canEdit={!busy && !isNew}
+                  onEdit={(next) => editMessage(message.id, next)}
+                />
+              );
+            }
             return (
               <div
                 key={message.id}
-                className={
-                  message.role === "user"
-                    ? "ml-8 rounded-lg bg-zinc-100 p-3 text-sm whitespace-pre-wrap dark:bg-zinc-800"
-                    : "mr-8 text-sm whitespace-pre-wrap"
-                }
+                className="mr-8 text-sm whitespace-pre-wrap"
               >
                 {shown}
                 {streaming && (complete || unfinished) && <div className={`${CHIP} mt-2`}>Writing HTML…</div>}
@@ -183,12 +222,12 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
                     <div className={CHIP}>{message.id === currentMessage?.id ? "Current version" : "HTML updated"}</div>
                     {message.id !== currentMessage?.id && (
                       <button
-                        onClick={() => restore(message.id)}
-                        disabled={busy || restoring}
+                        onClick={() => setPendingRevert(message.id)}
+                        disabled={busy || reverting}
                         className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-900 disabled:opacity-40 dark:hover:text-zinc-100"
                       >
                         <IconArrowBackUp size={14} aria-hidden />
-                        Restore
+                        Revert to this
                       </button>
                     )}
                   </div>
@@ -245,7 +284,7 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
         </form>
       </section>
 
-      <section className="flex min-w-0 flex-1 flex-col">
+      <section className={`${mobileView === "preview" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col md:flex`}>
         <header className="flex items-center justify-between gap-2 border-b border-zinc-200 px-4 py-2 dark:border-zinc-800">
           <input
             // Remounts with the latest title after a reply or rename.
@@ -264,24 +303,16 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
             }}
             className="min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium outline-none hover:border-zinc-300 focus:border-zinc-500 disabled:hover:border-transparent dark:hover:border-zinc-700"
           />
-          <div className="flex gap-2">
-            {html && !isNew && (
-              <Link href={`/t/${id}/view`} className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
-                <IconAppWindow size={16} aria-hidden />
-                Open tool
-              </Link>
-            )}
-            <DownloadButton html={html} />
-            <button
-              onClick={toggleDashboard}
-              disabled={!html || isNew}
-              className="flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
-            >
-              {onDashboard ? <IconBookmarkOff size={16} aria-hidden /> : <IconBookmarkPlus size={16} aria-hidden />}
-              {onDashboard ? "Remove from dashboard" : "Save to dashboard"}
-            </button>
-            <DeleteToolButton id={id} title={title} disabled={isNew} />
-          </div>
+          <ToolActions
+            id={id}
+            title={title}
+            html={html}
+            onDashboard={initialOnDashboard}
+            page="chat"
+            labelsFrom="2xl"
+            isNew={isNew}
+            busy={busy}
+          />
         </header>
         {shownToolError && (
           <div className="flex items-start gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
@@ -313,6 +344,27 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
           </div>
         )}
       </section>
-    </>
+      <ConfirmDialog
+        open={pendingRevert !== null}
+        title="Revert to this version?"
+        danger
+        busy={reverting}
+        onConfirm={revert}
+        onCancel={() => setPendingRevert(null)}
+        confirmLabel={reverting ? "Reverting…" : "Revert"}
+      >
+        The tool goes back to this version and every message after it is deleted. This can’t be undone.
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={pendingEdit !== null}
+        title="Edit and resend?"
+        danger
+        onConfirm={() => pendingEdit && sendEdit(pendingEdit.messageId, pendingEdit.text)}
+        onCancel={() => setPendingEdit(null)}
+        confirmLabel="Delete later messages and send"
+      >
+        Every message after this one will be deleted, including later versions of the tool. This can’t be undone.
+      </ConfirmDialog>
+    </div>
   );
 }

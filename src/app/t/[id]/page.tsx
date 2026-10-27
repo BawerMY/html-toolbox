@@ -32,7 +32,7 @@ async function CurrentSidebar({ params }: { params: Promise<{ id: string }> }) {
 
 export default function ToolPage({ params }: PageProps<"/t/[id]">) {
   return (
-    <main className="flex h-screen">
+    <main className="flex h-dvh flex-col lg:flex-row">
       <Suspense fallback={<Sidebar />}>
         <CurrentSidebar params={params} />
       </Suspense>

@@ -28,7 +28,7 @@ async function NewToolChat() {
 
 export default function NewToolPage() {
   return (
-    <main className="flex h-screen">
+    <main className="flex h-dvh flex-col lg:flex-row">
       <Sidebar />
       <Suspense>
         <NewToolChat />

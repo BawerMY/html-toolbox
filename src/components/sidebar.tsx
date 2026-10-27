@@ -2,11 +2,12 @@ import { IconLayoutDashboard, IconPlus } from "@tabler/icons-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { History } from "@/components/history";
+import { SidebarShell } from "@/components/sidebar-shell";
 
 export function Sidebar({ currentId }: { currentId?: string }) {
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-zinc-200 dark:border-zinc-800">
-      <nav className="space-y-1 border-b border-zinc-200 p-2 dark:border-zinc-800">
+    <SidebarShell>
+      <nav className="space-y-1 border-b border-zinc-200 p-2 pr-12 lg:pr-2 dark:border-zinc-800">
         <Link href="/" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800">
           <IconLayoutDashboard size={16} aria-hidden />
           Dashboard
@@ -22,6 +23,6 @@ export function Sidebar({ currentId }: { currentId?: string }) {
           <History currentId={currentId} />
         </Suspense>
       </div>
-    </aside>
+    </SidebarShell>
   );
 }

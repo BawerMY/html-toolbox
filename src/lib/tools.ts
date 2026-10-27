@@ -101,22 +101,44 @@ export async function setOnDashboard(id: string, onDashboard: boolean): Promise<
   return result.matchedCount === 1;
 }
 
-/** Appends an earlier version as the newest one: a "restore" request plus a reply holding its HTML. */
-export async function restoreVersion(id: string, messageId: string): Promise<UIMessage[] | null> {
+/** Rewinds the chat to an earlier version: every message after that reply is deleted. */
+export async function revertToVersion(id: string, messageId: string): Promise<UIMessage[] | null> {
   const tool = await getTool(id);
   if (!tool) return null;
   const index = tool.messages.findIndex((m) => m.id === messageId && m.role === "assistant");
-  const html = index === -1 ? null : extractHtml(messageText(tool.messages[index]));
-  if (!html) return null;
-  const request = tool.messages.findLast((m, i) => i < index && m.role === "user");
-  const label = request ? messageText(request).replace(/\s+/g, " ").slice(0, 80) : "an earlier version";
-  const messages: UIMessage[] = [
-    ...tool.messages,
-    { id: generateId(), role: "user", parts: [{ type: "text", text: `Restore the version from: “${label}”` }] },
-    { id: generateId(), role: "assistant", parts: [{ type: "text", text: `Restored that version.\n\n\`\`\`html\n${html}\n\`\`\`` }] },
-  ];
+  if (index === -1 || !extractHtml(messageText(tool.messages[index]))) return null;
+  const messages = tool.messages.slice(0, index + 1);
   await saveMessages(id, messages);
   return messages;
+}
+
+/** Copies a tool with its whole chat under a new id. Returns the new id. */
+export async function duplicateTool(id: string): Promise<string | null> {
+  const tool = await getTool(id);
+  if (!tool) return null;
+  const copyId = generateId();
+  const now = new Date();
+  await (await tools()).insertOne({
+    ...tool,
+    _id: copyId,
+    title: `${tool.title} (copy)`,
+    titleEdited: true,
+    onDashboard: false,
+    position: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return copyId;
+}
+
+/** Creates a tool from an existing HTML file, as if the assistant had written it. Returns the new id. */
+export async function importTool(html: string, fileName: string): Promise<string> {
+  const id = generateId();
+  await saveMessages(id, [
+    { id: generateId(), role: "user", parts: [{ type: "text", text: `Import ${fileName}` }] },
+    { id: generateId(), role: "assistant", parts: [{ type: "text", text: `Imported ${fileName}.\n\n\`\`\`html\n${html}\n\`\`\`` }] },
+  ]);
+  return id;
 }
 
 export async function deleteTool(id: string): Promise<void> {

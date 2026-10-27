@@ -18,9 +18,17 @@ export async function POST(req: Request) {
   const {
     id,
     message,
+    messageId,
     trigger,
     model: wanted,
-  }: { id: string; message: UIMessage; trigger?: "submit-message" | "regenerate-message"; model?: ModelSelection } =
+  }: {
+    id: string;
+    message: UIMessage;
+    /** Set when an earlier user message is edited: the chat restarts from it. */
+    messageId?: string;
+    trigger?: "submit-message" | "regenerate-message";
+    model?: ModelSelection;
+  } =
     await req.json();
   if (!isToolId(id)) return new Response("Invalid tool id", { status: 400 });
   if (isGenerating(id)) return new Response("This tool is already generating", { status: 409 });
@@ -32,6 +40,8 @@ export async function POST(req: Request) {
     while (messages.at(-1)?.role === "assistant") messages.pop();
     if (messages.length === 0) return new Response("Nothing to retry", { status: 400 });
   } else {
+    const edited = messageId ? messages.findIndex((m) => m.id === messageId && m.role === "user") : -1;
+    if (edited !== -1) messages.splice(edited);
     messages.push(message);
   }
   // Save the user message now, so it is there if the page is reloaded mid-generation.
