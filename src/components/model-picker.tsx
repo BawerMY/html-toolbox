@@ -1,49 +1,50 @@
 "use client";
 
-import { REASONING_LABELS, REASONING_LEVELS, resolveSelection, type ModelOption, type ModelSelection } from "@/lib/model-options";
+import { REASONING_LABELS, REASONING_LEVELS, type ModelSelection, type Reasoning } from "@/lib/model-selection";
 
 type Props = {
-  models: ModelOption[];
+  /** Suggestions from the user's provider; any other model id can be typed. */
+  models: string[];
   value: ModelSelection;
   onChange: (value: ModelSelection) => void;
   disabled?: boolean;
 };
 
-const selectClass =
+const fieldClass =
   "min-w-0 rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-xs text-zinc-600 outline-none focus:border-zinc-500 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300";
 
+/** Model and thinking effort for users with their own provider. */
 export function ModelPicker({ models, value, onChange, disabled }: Props) {
-  const option = models.find((m) => m.id === value.id);
   return (
     <>
-      <select
+      <input
         aria-label="Model"
+        title={value.id}
         value={value.id}
         disabled={disabled}
-        onChange={(e) => onChange(resolveSelection(models, { id: e.target.value }))}
-        className={`${selectClass} flex-1 truncate`}
+        list="chat-models"
+        onChange={(e) => onChange({ ...value, id: e.target.value })}
+        className={`${fieldClass} flex-1 truncate`}
+      />
+      <datalist id="chat-models">
+        {models.map((id) => (
+          <option key={id} value={id} />
+        ))}
+      </datalist>
+      <select
+        aria-label="Thinking"
+        value={value.reasoning ?? ""}
+        disabled={disabled}
+        onChange={(e) => onChange({ ...value, reasoning: (e.target.value || undefined) as Reasoning | undefined })}
+        className={fieldClass}
       >
-        {models.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.label}
+        <option value="">Thinking default</option>
+        {REASONING_LEVELS.map((level) => (
+          <option key={level} value={level}>
+            {REASONING_LABELS[level]}
           </option>
         ))}
       </select>
-      {option?.reasoning && (
-        <select
-          aria-label="Thinking"
-          value={value.reasoning}
-          disabled={disabled}
-          onChange={(e) => onChange(resolveSelection(models, { id: value.id, reasoning: e.target.value as ModelSelection["reasoning"] }))}
-          className={selectClass}
-        >
-          {REASONING_LEVELS.map((level) => (
-            <option key={level} value={level}>
-              {REASONING_LABELS[level]}
-            </option>
-          ))}
-        </select>
-      )}
     </>
   );
 }

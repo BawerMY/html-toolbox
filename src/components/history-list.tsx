@@ -14,7 +14,7 @@ export function HistoryList({ tools, currentId }: { tools: ToolSummary[]; curren
   return (
     <>
       {tools.length > 0 && (
-        <label className="mb-2 flex items-center gap-1.5 rounded-md border border-zinc-200 px-2 py-1.5 focus-within:border-zinc-400 dark:border-zinc-800 dark:focus-within:border-zinc-600">
+        <label className="mb-2 flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-2 py-1.5 focus-within:border-zinc-400 dark:border-zinc-800 dark:focus-within:border-zinc-600">
           <IconSearch size={14} className="shrink-0 text-zinc-400" aria-hidden />
           <input
             type="search"
@@ -27,7 +27,7 @@ export function HistoryList({ tools, currentId }: { tools: ToolSummary[]; curren
           />
         </label>
       )}
-      <ul className="space-y-0.5">
+      <ul className="-mx-2 min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
         {shown.map((tool) => (
           <li key={tool.id}>
             <Link

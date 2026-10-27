@@ -8,10 +8,10 @@ import {
 } from "ai";
 import { buildSystemPrompt, loadTurnReminder } from "@/lib/context";
 import { isGenerating, startGeneration, subscribe } from "@/lib/generations";
-import { getModel, getTemperature } from "@/lib/model";
-import { resolveSelection, type ModelSelection } from "@/lib/model-options";
-import { loadModels } from "@/lib/models";
 import { extractHtml, latestHtml, messageText, stripHtml } from "@/lib/html";
+import { getTemperature, modelForUser, ProviderError, type ModelChoice } from "@/lib/model";
+import { parseModelSelection } from "@/lib/model-selection";
+import { userFromHeaders } from "@/lib/session";
 import { getTool, isToolId, saveMessages, setToolModel } from "@/lib/tools";
 
 export async function POST(req: Request) {
@@ -27,13 +27,27 @@ export async function POST(req: Request) {
     /** Set when an earlier user message is edited: the chat restarts from it. */
     messageId?: string;
     trigger?: "submit-message" | "regenerate-message";
-    model?: ModelSelection;
+    /** Model and effort picked in the chat; only sent by users with their own provider. */
+    model?: unknown;
   } =
     await req.json();
+  const user = await userFromHeaders(req.headers);
+  if (!user) return new Response("Sign in to chat.", { status: 401 });
   if (!isToolId(id)) return new Response("Invalid tool id", { status: 400 });
-  if (isGenerating(id)) return new Response("This tool is already generating", { status: 409 });
 
   const tool = await getTool(id);
+  // A new id creates a tool for this user; an existing one must be theirs.
+  if (tool && tool.ownerId !== user.id) return new Response("Tool not found", { status: 404 });
+  if (isGenerating(id)) return new Response("This tool is already generating", { status: 409 });
+
+  let choice: ModelChoice;
+  try {
+    choice = await modelForUser(user.id, parseModelSelection(wanted) ?? tool?.model);
+  } catch (error) {
+    if (error instanceof ProviderError) return new Response(error.message, { status: 400 });
+    throw error;
+  }
+
   const messages = [...(tool?.messages ?? [])];
   if (trigger === "regenerate-message") {
     // Retry: drop the last reply and answer the last user message again.
@@ -45,9 +59,8 @@ export async function POST(req: Request) {
     messages.push(message);
   }
   // Save the user message now, so it is there if the page is reloaded mid-generation.
-  await saveMessages(id, messages);
-  const selection = resolveSelection(await loadModels(), wanted ?? tool?.model);
-  await setToolModel(id, selection);
+  if (!(await saveMessages(id, user.id, messages))) return new Response("Tool not found", { status: 404 });
+  if (choice.selection) await setToolModel(id, user.id, choice.selection);
 
   // Older HTML versions are dropped from history; only the current one is sent.
   const currentHtml = latestHtml(messages);
@@ -69,9 +82,9 @@ export async function POST(req: Request) {
 
   const abort = new AbortController();
   const result = streamText({
-    model: getModel(selection.id),
+    model: choice.model,
     abortSignal: abort.signal,
-    reasoning: selection.reasoning,
+    reasoning: choice.reasoning,
     temperature: getTemperature(),
     streamRetries: 2,
     system,
@@ -85,11 +98,13 @@ export async function POST(req: Request) {
       stream: result.stream,
       originalMessages: messages,
       generateMessageId: createIdGenerator({ prefix: "msg", size: 16 }),
-      onEnd: ({ messages }) => saveMessages(id, messages),
+      onEnd: async ({ messages }) => {
+        await saveMessages(id, user.id, messages);
+      },
       onError: (error) => {
         console.error(error);
         const { statusCode, data } = error as { statusCode?: number; data?: { metadata?: { error_type?: string } } };
-        if (statusCode === 429) return "The model provider is rate limiting requests (429). Wait a moment and retry, or switch LLM_MODEL.";
+        if (statusCode === 429) return "The model provider is rate limiting requests (429). Wait a moment and retry.";
         const message = error instanceof Error ? error.message : String(error);
         return [statusCode, message, data?.metadata?.error_type].filter(Boolean).join(" · ");
       },

@@ -2,15 +2,16 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ToolChat } from "@/components/tool-chat";
-import { resolveSelection } from "@/lib/model-options";
-import { loadModels } from "@/lib/models";
-import { getTool } from "@/lib/tools";
+import { chatModelOptions } from "@/lib/model";
+import { requireUser } from "@/lib/session";
+import { getOwnTool } from "@/lib/tools";
 
 async function SavedToolChat({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const tool = await getTool(id);
+  const user = await requireUser();
+  const tool = await getOwnTool(id, user.id);
   if (!tool) notFound();
-  const models = await loadModels();
+  const modelOptions = await chatModelOptions(user.id, tool.model);
   return (
     <ToolChat
       key={id}
@@ -18,8 +19,8 @@ async function SavedToolChat({ params }: { params: Promise<{ id: string }> }) {
       title={tool.title}
       initialMessages={tool.messages}
       initialOnDashboard={tool.onDashboard}
-      models={models}
-      initialModel={resolveSelection(models, tool.model)}
+      initialPublished={tool.published ?? false}
+      modelOptions={modelOptions}
       isNew={false}
     />
   );

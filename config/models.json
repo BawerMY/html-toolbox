@@ -1,4 +1,0 @@
-[
-  { "id": "deepseek/deepseek-v4-flash", "label": "DeepSeek V4 Flash", "reasoning": true, "defaultReasoning": "low" },
-  { "id": "deepseek/deepseek-v4-pro", "label": "DeepSeek V4 Pro", "reasoning": true, "defaultReasoning": "low" }
-]

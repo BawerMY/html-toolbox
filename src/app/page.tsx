@@ -1,10 +1,12 @@
 import { Suspense } from "react";
 import { DashboardGrid } from "@/components/dashboard-grid";
 import { Sidebar } from "@/components/sidebar";
+import { requireUser } from "@/lib/session";
 import { listDashboard } from "@/lib/tools";
 
 async function DashboardTools() {
-  const tools = await listDashboard();
+  const user = await requireUser();
+  const tools = await listDashboard(user.id);
   // Keyed on the server data so the grid resets when tools are added, removed, renamed or reordered.
   return <DashboardGrid key={tools.map((t) => `${t.id}:${t.title}`).join("|")} initialTools={tools} />;
 }

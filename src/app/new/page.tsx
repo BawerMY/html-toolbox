@@ -3,15 +3,15 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ToolChat } from "@/components/tool-chat";
-import { resolveSelection } from "@/lib/model-options";
-import { loadModels } from "@/lib/models";
-import { lastUsedModel } from "@/lib/tools";
+import { chatModelOptions } from "@/lib/model";
+import { requireUser } from "@/lib/session";
 
 async function NewToolChat() {
   // A fresh id per request; the tool is saved under it after the first reply.
   await connection();
+  const user = await requireUser();
   const id = generateId();
-  const models = await loadModels();
+  const modelOptions = await chatModelOptions(user.id);
   return (
     <ToolChat
       key={id}
@@ -19,8 +19,8 @@ async function NewToolChat() {
       title=""
       initialMessages={[]}
       initialOnDashboard={false}
-      models={models}
-      initialModel={resolveSelection(models, await lastUsedModel())}
+      initialPublished={false}
+      modelOptions={modelOptions}
       isNew
     />
   );

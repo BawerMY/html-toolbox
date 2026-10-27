@@ -6,13 +6,22 @@ import {
   IconBookmarkPlus,
   IconCopy,
   IconDownload,
+  IconGitFork,
   IconMessage,
   IconTrash,
+  IconWorld,
+  IconWorldOff,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
-import { deleteToolAction, duplicateToolAction, setOnDashboardAction } from "@/app/actions";
+import {
+  deleteToolAction,
+  duplicateToolAction,
+  forkToolAction,
+  setOnDashboardAction,
+  setPublishedAction,
+} from "@/app/actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { downloadHtml } from "@/lib/download";
 
@@ -31,6 +40,7 @@ type Props = {
   title: string;
   html: string | null;
   onDashboard: boolean;
+  published: boolean;
   /** The page these actions are on; the first button switches to the other one. */
   page: "chat" | "tool";
   labelsFrom: keyof typeof BREAKPOINTS;
@@ -41,7 +51,8 @@ type Props = {
 };
 
 /** The tool's actions, shared by the chat page and the tool page so both look and behave the same. */
-export function ToolActions({ id, title, html, onDashboard: savedOnDashboard, page, labelsFrom, isNew, busy }: Props) {
+export function ToolActions(props: Props) {
+  const { id, title, html, onDashboard: savedOnDashboard, published: savedPublished, page, labelsFrom, isNew, busy } = props;
   const router = useRouter();
   const { label, padding } = BREAKPOINTS[labelsFrom];
   const button = `${BUTTON} ${padding}`;
@@ -49,6 +60,8 @@ export function ToolActions({ id, title, html, onDashboard: savedOnDashboard, pa
 
   const [onDashboard, setOptimisticOnDashboard] = useOptimistic(savedOnDashboard);
   const [, startDashboard] = useTransition();
+  const [published, setOptimisticPublished] = useOptimistic(savedPublished);
+  const [, startPublish] = useTransition();
   const [duplicating, startDuplicate] = useTransition();
   const [deleting, startDelete] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -58,6 +71,14 @@ export function ToolActions({ id, title, html, onDashboard: savedOnDashboard, pa
     startDashboard(async () => {
       setOptimisticOnDashboard(next);
       await setOnDashboardAction(id, next);
+    });
+  }
+
+  function togglePublished() {
+    const next = !published;
+    startPublish(async () => {
+      setOptimisticPublished(next);
+      await setPublishedAction(id, next);
     });
   }
 
@@ -76,6 +97,7 @@ export function ToolActions({ id, title, html, onDashboard: savedOnDashboard, pa
   }
 
   const dashboardLabel = onDashboard ? "Remove from dashboard" : "Save to dashboard";
+  const publishLabel = published ? "Unpublish" : "Publish";
 
   return (
     <div className="flex shrink-0 gap-2">
@@ -104,6 +126,15 @@ export function ToolActions({ id, title, html, onDashboard: savedOnDashboard, pa
       <button onClick={toggleDashboard} disabled={!saved} title={dashboardLabel} className={button}>
         {onDashboard ? <IconBookmarkOff size={16} aria-hidden /> : <IconBookmarkPlus size={16} aria-hidden />}
         <span className={label}>{dashboardLabel}</span>
+      </button>
+      <button
+        onClick={togglePublished}
+        disabled={!saved}
+        title={published ? "Unpublish: remove from Discover" : "Publish: list on Discover so anyone can view and fork it"}
+        className={button}
+      >
+        {published ? <IconWorldOff size={16} aria-hidden /> : <IconWorld size={16} aria-hidden />}
+        <span className={label}>{publishLabel}</span>
       </button>
       <button onClick={duplicate} disabled={!saved || busy || duplicating} title="Duplicate" className={button}>
         <IconCopy size={16} aria-hidden />
@@ -134,6 +165,41 @@ export function ToolActions({ id, title, html, onDashboard: savedOnDashboard, pa
       >
         “{title || "Untitled tool"}” and its chat will be deleted permanently. This can’t be undone.
       </ConfirmDialog>
+    </div>
+  );
+}
+
+/** What someone who doesn't own a public tool can do with it. */
+export function VisitorToolActions({ id, html, signedIn }: { id: string; html: string; signedIn: boolean }) {
+  const router = useRouter();
+  const { label, padding } = BREAKPOINTS.lg;
+  const button = `${BUTTON} ${padding}`;
+  const [forking, startFork] = useTransition();
+
+  function fork() {
+    startFork(async () => {
+      const forkId = await forkToolAction(id);
+      if (forkId) router.push(`/t/${forkId}`);
+    });
+  }
+
+  return (
+    <div className="flex shrink-0 gap-2">
+      <button onClick={() => downloadHtml(html)} title="Download" className={button}>
+        <IconDownload size={16} aria-hidden />
+        <span className={label}>Download</span>
+      </button>
+      {signedIn ? (
+        <button onClick={fork} disabled={forking} title="Fork: start your own tool from this one" className={button}>
+          <IconGitFork size={16} aria-hidden />
+          <span className={label}>{forking ? "Forking…" : "Fork"}</span>
+        </button>
+      ) : (
+        <Link href="/login" title="Sign in to fork this tool" className={button}>
+          <IconGitFork size={16} aria-hidden />
+          <span className={label}>Sign in to fork</span>
+        </Link>
+      )}
     </div>
   );
 }

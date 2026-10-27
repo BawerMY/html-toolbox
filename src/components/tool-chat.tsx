@@ -22,7 +22,7 @@ import { ImportHtmlButton } from "@/components/import-html-button";
 import { ModelPicker } from "@/components/model-picker";
 import { ToolActions } from "@/components/tool-actions";
 import { UserMessage } from "@/components/user-message";
-import type { ModelOption, ModelSelection } from "@/lib/model-options";
+import type { ModelSelection } from "@/lib/model-selection";
 import { extractHtml, hasUnfinishedHtml, latestHtmlMessage, messageText, stripHtml } from "@/lib/html";
 import { isToolErrorMessage, previewHtml, RESEND_TOOL_ERRORS } from "@/lib/preview";
 
@@ -33,18 +33,21 @@ type Props = {
   title: string;
   initialMessages: UIMessage[];
   initialOnDashboard: boolean;
-  models: ModelOption[];
-  initialModel: ModelSelection;
+  initialPublished: boolean;
+  /** Set when the user has their own provider: the chat shows a model and effort picker. */
+  modelOptions: { models: string[]; initial: ModelSelection } | null;
   /** True on the "new tool" page, before the tool exists in the database. */
   isNew: boolean;
 };
 
-export function ToolChat({ id, title, initialMessages, initialOnDashboard, models, initialModel, isNew }: Props) {
+export function ToolChat({ id, title, initialMessages, initialOnDashboard, initialPublished, modelOptions, isNew }: Props) {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const [model, setModel] = useState(initialModel);
   // Small screens show the chat or the preview, not both.
   const [mobileView, setMobileView] = useState<"chat" | "preview">("chat");
+  const [model, setModel] = useState(modelOptions?.initial);
+  // Sent with every request when the user has their own provider; the server saves it on the tool.
+  const options = model ? { body: { model } } : undefined;
   const { messages, setMessages, sendMessage, regenerate, status, error } = useChat({
     id,
     messages: initialMessages,
@@ -111,19 +114,18 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
     e.preventDefault();
     const text = input.trim();
     if (!text || busy) return;
-    // The server saves the model on the tool, so it is remembered for the next message.
-    sendMessage({ text }, { body: { model } });
+    sendMessage({ text }, options);
     setInput("");
   }
 
   function retry() {
     // Replaces the last reply (or answers the last message again after an error).
-    regenerate({ body: { model } });
+    regenerate(options);
   }
 
   function fixToolError() {
     if (!shownToolError || busy) return;
-    sendMessage({ text: `The tool shows this error:\n${shownToolError}\n\nFix it.` }, { body: { model } });
+    sendMessage({ text: `The tool shows this error:\n${shownToolError}\n\nFix it.` }, options);
   }
 
   // Reverting deletes every message after the chosen version, so it is confirmed first.
@@ -149,7 +151,7 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
 
   function sendEdit(messageId: string, text: string) {
     setPendingEdit(null);
-    sendMessage({ text, messageId }, { body: { model } });
+    sendMessage({ text, messageId }, options);
   }
 
   function stop() {
@@ -268,7 +270,9 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
             className="w-full resize-none rounded-md border border-zinc-300 bg-transparent p-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700"
           />
           <div className="mt-2 flex items-center justify-end gap-2">
-            <ModelPicker models={models} value={model} onChange={setModel} disabled={busy} />
+            {modelOptions && model && (
+              <ModelPicker models={modelOptions.models} value={model} onChange={setModel} disabled={busy} />
+            )}
             {busy ? (
               <button type="button" onClick={stop} className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
                 <IconPlayerStopFilled size={16} aria-hidden />
@@ -308,6 +312,7 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, model
             title={title}
             html={html}
             onDashboard={initialOnDashboard}
+            published={initialPublished}
             page="chat"
             labelsFrom="2xl"
             isNew={isNew}
