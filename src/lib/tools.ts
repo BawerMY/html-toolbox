@@ -1,7 +1,7 @@
-import type { UIMessage } from "ai";
+import { generateId, type UIMessage } from "ai";
 import { connection } from "next/server";
 import { getDb } from "@/lib/db";
-import { htmlTitle, latestHtml, messageText } from "@/lib/html";
+import { extractHtml, htmlTitle, latestHtml, messageText } from "@/lib/html";
 import type { ModelSelection } from "@/lib/model-options";
 
 /** A chat and the tool it builds are one document. */
@@ -99,6 +99,24 @@ export async function setOnDashboard(id: string, onDashboard: boolean): Promise<
   }
   const result = await collection.updateOne({ _id: id }, { $set: update });
   return result.matchedCount === 1;
+}
+
+/** Appends an earlier version as the newest one: a "restore" request plus a reply holding its HTML. */
+export async function restoreVersion(id: string, messageId: string): Promise<UIMessage[] | null> {
+  const tool = await getTool(id);
+  if (!tool) return null;
+  const index = tool.messages.findIndex((m) => m.id === messageId && m.role === "assistant");
+  const html = index === -1 ? null : extractHtml(messageText(tool.messages[index]));
+  if (!html) return null;
+  const request = tool.messages.findLast((m, i) => i < index && m.role === "user");
+  const label = request ? messageText(request).replace(/\s+/g, " ").slice(0, 80) : "an earlier version";
+  const messages: UIMessage[] = [
+    ...tool.messages,
+    { id: generateId(), role: "user", parts: [{ type: "text", text: `Restore the version from: “${label}”` }] },
+    { id: generateId(), role: "assistant", parts: [{ type: "text", text: `Restored that version.\n\n\`\`\`html\n${html}\n\`\`\`` }] },
+  ];
+  await saveMessages(id, messages);
+  return messages;
 }
 
 export async function deleteTool(id: string): Promise<void> {

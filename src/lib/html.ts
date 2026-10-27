@@ -2,15 +2,26 @@ import type { UIMessage } from "ai";
 
 const FENCE_OPEN = /```html[^\n]*\n/gi;
 
-/** Returns the HTML document inside the last ```html block of `text`, or null.
- *  Also matches an unclosed block, so it works mid-stream. */
-export function extractHtml(text: string): string | null {
-  const opens = [...text.matchAll(FENCE_OPEN)];
-  const last = opens.at(-1);
+function lastHtmlBlock(text: string): { html: string; closed: boolean } | null {
+  const last = [...text.matchAll(FENCE_OPEN)].at(-1);
   if (!last) return null;
   const start = last.index + last[0].length;
   const end = text.indexOf("```", start);
-  return (end === -1 ? text.slice(start) : text.slice(start, end)).trim();
+  return { html: (end === -1 ? text.slice(start) : text.slice(start, end)).trim(), closed: end !== -1 };
+}
+
+/** Returns the HTML document inside the last ```html block of `text`, or null if there is none
+ *  or it is unfinished (still streaming, or the reply was cut off). A block missing only its
+ *  closing fence still counts when the document ends with </html>. */
+export function extractHtml(text: string): string | null {
+  const block = lastHtmlBlock(text);
+  if (!block) return null;
+  return block.closed || /<\/html>$/i.test(block.html) ? block.html : null;
+}
+
+/** True when the last ```html block is started but not finished. */
+export function hasUnfinishedHtml(text: string): boolean {
+  return lastHtmlBlock(text) !== null && extractHtml(text) === null;
 }
 
 /** Text of a message with every ```html block removed. */
@@ -26,10 +37,14 @@ export function messageText(message: UIMessage): string {
 
 /** The most recent HTML produced by the assistant in the conversation. */
 export function latestHtml(messages: UIMessage[]): string | null {
+  const message = latestHtmlMessage(messages);
+  return message ? extractHtml(messageText(message)) : null;
+}
+
+/** The assistant message holding the current version of the tool. */
+export function latestHtmlMessage(messages: UIMessage[]): UIMessage | null {
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role !== "assistant") continue;
-    const html = extractHtml(messageText(messages[i]));
-    if (html) return html;
+    if (messages[i].role === "assistant" && extractHtml(messageText(messages[i]))) return messages[i];
   }
   return null;
 }

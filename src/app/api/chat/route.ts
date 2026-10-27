@@ -15,12 +15,25 @@ import { extractHtml, latestHtml, messageText, stripHtml } from "@/lib/html";
 import { getTool, isToolId, saveMessages, setToolModel } from "@/lib/tools";
 
 export async function POST(req: Request) {
-  const { id, message, model: wanted }: { id: string; message: UIMessage; model?: ModelSelection } = await req.json();
+  const {
+    id,
+    message,
+    trigger,
+    model: wanted,
+  }: { id: string; message: UIMessage; trigger?: "submit-message" | "regenerate-message"; model?: ModelSelection } =
+    await req.json();
   if (!isToolId(id)) return new Response("Invalid tool id", { status: 400 });
   if (isGenerating(id)) return new Response("This tool is already generating", { status: 409 });
 
   const tool = await getTool(id);
-  const messages = [...(tool?.messages ?? []), message];
+  const messages = [...(tool?.messages ?? [])];
+  if (trigger === "regenerate-message") {
+    // Retry: drop the last reply and answer the last user message again.
+    while (messages.at(-1)?.role === "assistant") messages.pop();
+    if (messages.length === 0) return new Response("Nothing to retry", { status: 400 });
+  } else {
+    messages.push(message);
+  }
   // Save the user message now, so it is there if the page is reloaded mid-generation.
   await saveMessages(id, messages);
   const selection = resolveSelection(await loadModels(), wanted ?? tool?.model);
