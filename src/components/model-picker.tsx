@@ -5,6 +5,8 @@ import { REASONING_LABELS, REASONING_LEVELS, type ModelSelection, type Reasoning
 type Props = {
   /** Suggestions from the user's provider; any other model id can be typed. */
   models: string[];
+  /** The app's default model, offered next to the user's own provider. */
+  defaultModel: string;
   value: ModelSelection;
   onChange: (value: ModelSelection) => void;
   disabled?: boolean;
@@ -13,8 +15,32 @@ type Props = {
 const fieldClass =
   "min-w-0 rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-xs text-zinc-600 outline-none focus:border-zinc-500 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300";
 
-/** Model and thinking effort for users with their own provider. */
-export function ModelPicker({ models, value, onChange, disabled }: Props) {
+/** For users with their own provider: the app's default model, or their own model and thinking effort. */
+export function ModelPicker({ models, defaultModel, value, onChange, disabled }: Props) {
+  return (
+    <>
+      <select
+        aria-label="Model source"
+        value={value.useDefault ? "default" : "own"}
+        disabled={disabled}
+        onChange={(e) => onChange({ ...value, useDefault: e.target.value === "default" || undefined })}
+        className={fieldClass}
+      >
+        <option value="default">Default</option>
+        <option value="own">Your key</option>
+      </select>
+      {value.useDefault ? (
+        <span title={defaultModel} className="min-w-0 flex-1 truncate text-xs text-zinc-500">
+          {defaultModel.split("/").pop()}
+        </span>
+      ) : (
+        <OwnModel models={models} value={value} onChange={onChange} disabled={disabled} />
+      )}
+    </>
+  );
+}
+
+function OwnModel({ models, value, onChange, disabled }: Omit<Props, "defaultModel">) {
   return (
     <>
       <input

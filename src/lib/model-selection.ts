@@ -10,14 +10,20 @@ export const REASONING_LABELS: Record<Reasoning, string> = {
   high: "Thinking high",
 };
 
-/** No `reasoning` means the provider's default (nothing is sent). */
-export type ModelSelection = { id: string; reasoning?: Reasoning };
+/**
+ * `id` and `reasoning` apply to the user's own provider; no `reasoning` means the provider's default.
+ * `useDefault` picks the app's default model instead, keeping the own-model choice for switching back.
+ */
+export type ModelSelection = { id: string; reasoning?: Reasoning; useDefault?: boolean };
 
 /** Validates a selection sent by the browser; null if it is malformed. */
 export function parseModelSelection(value: unknown): ModelSelection | null {
   if (typeof value !== "object" || value === null) return null;
-  const { id, reasoning } = value as { id?: unknown; reasoning?: unknown };
-  if (typeof id !== "string" || !id.trim() || id.length > 200) return null;
+  const { id, reasoning, useDefault } = value as { id?: unknown; reasoning?: unknown; useDefault?: unknown };
+  if (typeof id !== "string" || id.length > 200) return null;
   if (reasoning !== undefined && !REASONING_LEVELS.includes(reasoning as Reasoning)) return null;
-  return { id: id.trim(), reasoning: reasoning as Reasoning | undefined };
+  if (useDefault !== undefined && typeof useDefault !== "boolean") return null;
+  if (!useDefault && !id.trim()) return null;
+  // Unset fields are left out, so nothing is stored as null.
+  return { id: id.trim(), ...(reasoning ? { reasoning: reasoning as Reasoning } : {}), ...(useDefault ? { useDefault: true } : {}) };
 }

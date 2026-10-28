@@ -87,6 +87,16 @@ export async function forkToolAction(id: string) {
   return forkId;
 }
 
+/** Forks a public tool and puts the fork on the user's dashboard. Returns the fork's id. */
+export async function addToDashboardAction(id: string) {
+  const user = await requireUser();
+  const forkId = await forkTool(id, user.id);
+  if (!forkId) return null;
+  await setOnDashboard(forkId, user.id, true);
+  refreshAllPages();
+  return forkId;
+}
+
 export async function importToolAction(html: string, fileName: string): Promise<{ id: string } | { error: string }> {
   const user = await requireUser();
   const trimmed = html.trim();

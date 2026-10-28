@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db": "mkdir -p .data/mongo && mongod --dbpath .data/mongo --bind_ip 127.0.0.1 --port 27018"
+    "db": "mkdir -p .data/mongo && mongod --dbpath .data/mongo --bind_ip 127.0.0.1 --port 27018",
+    "db:tailscale": "mkdir -p .data/mongo && mongod --dbpath .data/mongo --bind_ip 127.0.0.1,$(tailscale ip -4) --port 27018"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.78",

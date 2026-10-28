@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition } from "react";
 import {
+  addToDashboardAction,
   deleteToolAction,
   duplicateToolAction,
   forkToolAction,
@@ -175,6 +176,13 @@ export function VisitorToolActions({ id, html, signedIn }: { id: string; html: s
   const { label, padding } = BREAKPOINTS.lg;
   const button = `${BUTTON} ${padding}`;
   const [forking, startFork] = useTransition();
+  const [adding, startAdd] = useTransition();
+
+  function addToDashboard() {
+    startAdd(async () => {
+      if (await addToDashboardAction(id)) router.push("/");
+    });
+  }
 
   function fork() {
     startFork(async () => {
@@ -190,7 +198,23 @@ export function VisitorToolActions({ id, html, signedIn }: { id: string; html: s
         <span className={label}>Download</span>
       </button>
       {signedIn ? (
-        <button onClick={fork} disabled={forking} title="Fork: start your own tool from this one" className={button}>
+        <button
+          onClick={addToDashboard}
+          disabled={adding || forking}
+          title="Add to dashboard: saves your own copy and puts it on your dashboard"
+          className={button}
+        >
+          <IconBookmarkPlus size={16} aria-hidden />
+          <span className={label}>{adding ? "Adding…" : "Add to dashboard"}</span>
+        </button>
+      ) : (
+        <Link href="/login" title="Sign in to add this tool to your dashboard" className={button}>
+          <IconBookmarkPlus size={16} aria-hidden />
+          <span className={label}>Add to dashboard</span>
+        </Link>
+      )}
+      {signedIn ? (
+        <button onClick={fork} disabled={forking || adding} title="Fork: start your own tool from this one" className={button}>
           <IconGitFork size={16} aria-hidden />
           <span className={label}>{forking ? "Forking…" : "Fork"}</span>
         </button>

@@ -35,7 +35,7 @@ type Props = {
   initialOnDashboard: boolean;
   initialPublished: boolean;
   /** Set when the user has their own provider: the chat shows a model and effort picker. */
-  modelOptions: { models: string[]; initial: ModelSelection } | null;
+  modelOptions: { models: string[]; initial: ModelSelection; defaultModel: string } | null;
   /** True on the "new tool" page, before the tool exists in the database. */
   isNew: boolean;
 };
@@ -271,7 +271,13 @@ export function ToolChat({ id, title, initialMessages, initialOnDashboard, initi
           />
           <div className="mt-2 flex items-center justify-end gap-2">
             {modelOptions && model && (
-              <ModelPicker models={modelOptions.models} value={model} onChange={setModel} disabled={busy} />
+              <ModelPicker
+                models={modelOptions.models}
+                defaultModel={modelOptions.defaultModel}
+                value={model}
+                onChange={setModel}
+                disabled={busy}
+              />
             )}
             {busy ? (
               <button type="button" onClick={stop} className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">

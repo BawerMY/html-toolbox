@@ -4,7 +4,7 @@ import type { ModelSelection, Reasoning } from "@/lib/model-selection";
 import { checkProviderUrl } from "@/lib/provider-url";
 import { getProvider } from "@/lib/settings";
 
-/** `selection` is set when the user's own provider is used, so the chat can remember it. */
+/** `selection` is set when the user has their own provider, so the chat can remember the choice. */
 export type ModelChoice = { model: LanguageModel; reasoning?: Reasoning; selection?: ModelSelection };
 
 function requireEnv(name: string): string {
@@ -22,7 +22,7 @@ export class ProviderError extends Error {}
  */
 export async function modelForUser(userId: string, wanted?: ModelSelection): Promise<ModelChoice> {
   const provider = await getProvider(userId);
-  if (provider) {
+  if (provider && !wanted?.useDefault) {
     const problem = await checkProviderUrl(provider.baseURL);
     if (problem) throw new ProviderError(`Your API settings can’t be used: ${problem}`);
     const client = createOpenAICompatible({
@@ -41,7 +41,12 @@ export async function modelForUser(userId: string, wanted?: ModelSelection): Pro
     apiKey: process.env.LLM_API_KEY,
   });
   const reasoning = process.env.LLM_REASONING as Reasoning | undefined;
-  return { model: client.chatModel(requireEnv("LLM_MODEL")), reasoning: reasoning || undefined };
+  return {
+    model: client.chatModel(requireEnv("LLM_MODEL")),
+    reasoning: reasoning || undefined,
+    // Users with their own provider picked the default on purpose; remember it on the tool.
+    selection: provider && wanted ? wanted : undefined,
+  };
 }
 
 /**
@@ -51,14 +56,14 @@ export async function modelForUser(userId: string, wanted?: ModelSelection): Pro
 export async function chatModelOptions(
   userId: string,
   saved?: ModelSelection,
-): Promise<{ models: string[]; initial: ModelSelection } | null> {
+): Promise<{ models: string[]; initial: ModelSelection; defaultModel: string } | null> {
   const provider = await getProvider(userId);
   if (!provider) return null;
   let models: string[] = [];
   if (!(await checkProviderUrl(provider.baseURL))) {
     models = await listProviderModels(provider.baseURL, provider.apiKey).catch(() => []);
   }
-  return { models, initial: saved ?? { id: provider.model } };
+  return { models, initial: saved ?? { id: provider.model }, defaultModel: defaultModelId() };
 }
 
 /** The default model's id, shown in Settings. */
