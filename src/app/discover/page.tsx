@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Suspense } from "react";
+import { DiscoverGrid } from "@/components/discover-grid";
 import { Sidebar } from "@/components/sidebar";
 import { listPublicTools } from "@/lib/tools";
 
@@ -8,21 +8,7 @@ async function PublicTools() {
   if (tools.length === 0) {
     return <p className="text-sm text-zinc-500">No public tools yet. Publish one of yours to list it here.</p>;
   }
-  return (
-    <ul className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-      {tools.map((tool) => (
-        <li key={tool.id}>
-          <Link
-            href={`/t/${tool.id}/view`}
-            className="block rounded-lg border border-zinc-200 bg-white px-4 py-5 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-          >
-            <span className="block truncate text-sm font-medium">{tool.title}</span>
-            <span className="mt-1 block truncate text-xs text-zinc-500">by {tool.author}</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
+  return <DiscoverGrid tools={tools} />;
 }
 
 export default function DiscoverPage() {
