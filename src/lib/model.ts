@@ -56,14 +56,14 @@ export async function modelForUser(userId: string, wanted?: ModelSelection): Pro
 export async function chatModelOptions(
   userId: string,
   saved?: ModelSelection,
-): Promise<{ models: string[]; initial: ModelSelection; defaultModel: string } | null> {
+): Promise<{ models: string[]; initial: ModelSelection } | null> {
   const provider = await getProvider(userId);
   if (!provider) return null;
   let models: string[] = [];
   if (!(await checkProviderUrl(provider.baseURL))) {
     models = await listProviderModels(provider.baseURL, provider.apiKey).catch(() => []);
   }
-  return { models, initial: saved ?? { id: provider.model }, defaultModel: defaultModelId() };
+  return { models, initial: saved ?? { id: provider.model } };
 }
 
 /** The default model's id, shown in Settings. */
